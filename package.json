@@ -1,6 +1,8 @@
 {
   "name": "vue-jest-monorepo",
   "private": true,
+  "main": "packages/vue2-jest/lib/index.js",
+  "version": "29.2.5",
   "engines": {
     "node": ">=10",
     "yarn": "^1.17.3"
