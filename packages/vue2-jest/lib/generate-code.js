@@ -1,66 +1,50 @@
 const namespace = require('./constants').vueOptionsNamespace
-const { SourceNode, SourceMapConsumer } = require('source-map')
 
-function addToSourceMap(node, result) {
-  if (result && result.code) {
-    if (result.map) {
-      node.add(
-        SourceNode.fromStringWithSourceMap(
-          result.code,
-          new SourceMapConsumer(result.map)
-        )
-      )
-    } else {
-      node.add(result.code)
-    }
-  }
-}
+const splitRE = /\r?\n/g
 
 module.exports = function generateCode(
   scriptResult,
-  scriptSetupResult,
   templateResult,
   stylesResult,
   customBlocksResult,
-  isFunctional,
-  filename
+  isFunctional
 ) {
-  var node = new SourceNode(null, null)
+  let output = ''
+  let renderFnStartLine
+  let renderFnEndLine
 
-  if (scriptResult || scriptSetupResult) {
-    scriptResult && addToSourceMap(node, scriptResult)
-    scriptSetupResult && addToSourceMap(node, scriptSetupResult)
+  if (scriptResult) {
+    output += `${scriptResult.code};\n`
   } else {
-    node.add(
+    output +=
       `Object.defineProperty(exports, "__esModule", {\n` +
-        `  value: true\n` +
-        `});\n` +
-        'module.exports.default = {};\n'
-    )
+      `  value: true\n` +
+      `});\n` +
+      'module.exports.default = {};\n'
   }
 
-  node.add(
+  output +=
     `var ${namespace} = typeof exports.default === 'function' ` +
-      `? exports.default.options ` +
-      `: exports.default\n`
-  )
+    `? exports.default.options ` +
+    `: exports.default\n`
 
   if (templateResult) {
-    addToSourceMap(node, templateResult)
-
-    node.replaceRight(
+    renderFnStartLine = output.split(splitRE).length
+    templateResult.code = templateResult.code.replace(
       'var _c = _vm._self._c || _h',
       '/* istanbul ignore next */\nvar _c = _vm._self._c || _h'
     )
+    output += `${templateResult.code}\n`
 
-    node.add(
-      `\n__options__.render = render\n` +
-        `${namespace}.staticRenderFns = staticRenderFns\n`
-    )
+    renderFnEndLine = output.split(splitRE).length
+
+    output +=
+      `__options__.render = render\n` +
+      `${namespace}.staticRenderFns = staticRenderFns\n`
 
     if (isFunctional) {
-      node.add(`${namespace}.functional = true\n`)
-      node.add(`${namespace}._compiled = true\n`)
+      output += `${namespace}.functional = true\n`
+      output += `${namespace}._compiled = true\n`
     }
   }
 
@@ -75,32 +59,33 @@ module.exports = function generateCode(
           `this['${moduleName}'], ${code});\n`
       )
       .join('')
-
     if (isFunctional) {
-      node.add(
+      output +=
         `;(function() {\n` +
-          `  var originalRender = ${namespace}.render\n` +
-          `  var styleFn = function () { ${styleStr} }\n` +
-          `  ${namespace}.render = function renderWithStyleInjection (h, context) {\n` +
-          `    styleFn.call(context)\n` +
-          `    return originalRender(h, context)\n` +
-          `  }\n` +
-          `})()\n`
-      )
+        `  var originalRender = ${namespace}.render\n` +
+        `  var styleFn = function () { ${styleStr} }\n` +
+        `  ${namespace}.render = function renderWithStyleInjection (h, context) {\n` +
+        `    styleFn.call(context)\n` +
+        `    return originalRender(h, context)\n` +
+        `  }\n` +
+        `})()\n`
     } else {
-      node.add(
+      output +=
         `;(function() {\n` +
-          `  var beforeCreate = ${namespace}.beforeCreate\n` +
-          `  var styleFn = function () { ${styleStr} }\n` +
-          `  ${namespace}.beforeCreate = beforeCreate ? [].concat(beforeCreate, styleFn) : [styleFn]\n` +
-          `})()\n`
-      )
+        `  var beforeCreate = ${namespace}.beforeCreate\n` +
+        `  var styleFn = function () { ${styleStr} }\n` +
+        `  ${namespace}.beforeCreate = beforeCreate ? [].concat(beforeCreate, styleFn) : [styleFn]\n` +
+        `})()\n`
     }
   }
 
   if (customBlocksResult) {
-    node.add(`;\n ${customBlocksResult}`)
+    output += `;\n ${customBlocksResult}`
   }
 
-  return node.toStringWithSourceMap({ file: filename })
+  return {
+    code: output,
+    renderFnStartLine,
+    renderFnEndLine
+  }
 }

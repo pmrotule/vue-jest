@@ -9,7 +9,10 @@ const getCustomTransformer = require('./utils').getCustomTransformer
 const loadSrc = require('./utils').loadSrc
 const babelTransformer = require('babel-jest').default
 const generateCode = require('./generate-code')
+const generateSourceMap = require('./generate-source-map')
 const mapLines = require('./map-lines')
+
+const splitRE = /\r?\n/g
 
 let isVue27 = false
 let compilerUtils
@@ -166,18 +169,28 @@ module.exports = function(src, filename, config) {
       descriptor.script.content &&
       /functional:\s*true/.test(descriptor.script.content))
 
+  const templateStart = descriptor.template && descriptor.template.start
+  const templateLine = src.slice(0, templateStart).split(splitRE).length
+
   const output = generateCode(
     scriptResult,
-    scriptSetupResult,
     templateResult,
     stylesResult,
     customBlocksResult,
-    isFunctional,
-    filename
+    isFunctional
   )
+
+  const map = generateSourceMap(
+    scriptResult,
+    src,
+    filename,
+    output.renderFnStartLine,
+    output.renderFnEndLine,
+    templateLine
+  ).toJSON()
 
   return {
     code: output.code,
-    map: output.map.toString()
+    map
   }
 }

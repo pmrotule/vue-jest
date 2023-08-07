@@ -58,7 +58,7 @@ test('generates source maps for .vue files', () => {
     config
   })
 
-  expect(JSON.parse(map)).toMatchSnapshot()
+  expect(map).toMatchSnapshot()
 })
 
 test('generates source maps using src attributes', () => {
@@ -71,7 +71,7 @@ test('generates source maps using src attributes', () => {
 
   const { map } = jestVue.process(fileString, filePath, { config })
 
-  expect(JSON.parse(map)).toMatchSnapshot()
+  expect(map).toMatchSnapshot()
 })
 
 test('processes .vue file using jsx', () => {
